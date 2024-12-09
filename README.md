@@ -11,7 +11,7 @@ The Webpage Question Extractor is a Chrome extension designed to automatically e
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ai-auto-selected-questions.git
+   git clone https://github.com/guomengtao/ai-auto-selected-questions.git
    ```
 2. Open Chrome and navigate to `chrome://extensions/`.
 3. Enable "Developer mode" in the top right corner.
@@ -45,3 +45,7 @@ This project is licensed under the MIT License.
 
 ## Contact
 For any questions or suggestions, please contact [your email].
+
+## Updates
+- Added AI-powered question answering using Azure's API.
+- Enhanced UI for better user interaction and feedback.
