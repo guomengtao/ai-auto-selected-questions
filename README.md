@@ -1,51 +1,42 @@
-# Webpage Question Extractor Chrome Extension
+# 🤖 AI 问题提取与解答 Chrome 扩展
 
-## Overview
-The Webpage Question Extractor is a Chrome extension designed to automatically extract questions and their options from web pages, specifically targeting online quiz and exam platforms. It also integrates with Azure's AI services to provide answers to these questions.
+## 项目简介
+这是一个智能的Chrome浏览器扩展，可以自动从网页中提取问题并使用AI智能解答。
 
-## Features
-- Extracts question text and multiple-choice options from web pages.
-- Displays extracted questions and options in a user-friendly popup interface.
-- Sends questions to Azure's AI for automated answering.
+## 🚀 最新版本更新 (v1.2)
+- 集成Coze AI服务
+- 优化问题提取算法
+- 改进AI答案生成机制
 
-## Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/guomengtao/ai-auto-selected-questions.git
-   ```
-2. Open Chrome and navigate to `chrome://extensions/`.
-3. Enable "Developer mode" in the top right corner.
-4. Click "Load unpacked" and select the extension directory.
+## 功能特点
+- 🔍 自动识别网页中的问题
+- 🧠 AI智能解答
+- 📝 支持多种问题类型
+- 🌐 中文问题支持
 
-## Usage
-1. Navigate to a webpage containing questions.
-2. Click the extension icon and press "Extract Questions".
-3. View extracted questions and options.
-4. Optionally, click "Get AI Answers" to retrieve answers from Azure's AI.
+## 技术栈
+- JavaScript
+- Chrome Extension API
+- Coze AI
 
-## Files
-- `manifest.json`: Configuration file for the Chrome extension.
-- `content.js`: Contains the logic for extracting questions from web pages.
-- `popup.html`: Defines the structure of the popup interface.
-- `popup.js`: Handles interactions within the popup, including communication with Azure's AI.
-- `images/`: Contains icons for the extension.
+## 安装方法
+1. 克隆仓库
+2. 在Chrome浏览器中启用开发者模式
+3. 加载未打包的扩展程序
 
-## Permissions
-- `activeTab`: Allows the extension to access the currently active tab.
-- `scripting`: Enables the execution of scripts on the current tab.
+## 使用说明
+1. 打开任意网页
+2. 点击扩展图标
+3. 选择"获取问题"
+4. 点击"获取AI答案"
 
-## Dependencies
-- Azure Cognitive Services for AI-powered answers.
+## 未来计划
+- 支持更多语言
+- 优化AI模型
+- 增加用户自定义选项
 
-## Contributing
-Feel free to fork the repository and submit pull requests. For major changes, please open an issue first to discuss what you would like to change.
+## 贡献
+欢迎提交 issues 和 pull requests！
 
-## License
-This project is licensed under the MIT License.
-
-## Contact
-For any questions or suggestions, please contact [your email].
-
-## Updates
-- Added AI-powered question answering using Azure's API.
-- Enhanced UI for better user interaction and feedback.
+## 许可证
+MIT License
