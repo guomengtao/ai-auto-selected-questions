@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Chrome Extension
+*.crx
+*.pem
+
+# Dependency directories
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo

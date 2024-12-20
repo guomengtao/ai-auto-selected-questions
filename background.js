@@ -60,10 +60,44 @@ async function safeStorageOperation(action, data = {}) {
   }
 }
 
-// 初始化：检查 API 状态
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('AI问题解答助手已安装');
-  debugChromeAPI();
+// 消息转发处理器
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Background script received message:', request);
+  
+  // 获取当前活动标签页
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      console.error('No active tab found');
+      sendResponse({ 
+        success: false, 
+        error: 'No active tab found' 
+      });
+      return;
+    }
+
+    const activeTab = tabs[0];
+
+    // 转发消息到内容脚本
+    chrome.tabs.sendMessage(activeTab.id, request, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error forwarding message:', chrome.runtime.lastError);
+        sendResponse({ 
+          success: false, 
+          error: chrome.runtime.lastError.message 
+        });
+        return;
+      }
+
+      console.log('Received response from content script:', response);
+      sendResponse(response);
+    });
+
+    // 返回 true 表示异步响应
+    return true;
+  });
+
+  // 返回 true 以支持异步 sendResponse
+  return true;
 });
 
 // 跨标签页通信处理
@@ -110,6 +144,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } finally {
     console.groupEnd();
   }
+});
+
+// 初始化：检查 API 状态
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('AI问题解答助手已安装');
+  debugChromeAPI();
 });
 
 // 错误处理和日志记录

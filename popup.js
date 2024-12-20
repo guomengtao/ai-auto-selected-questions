@@ -288,14 +288,14 @@ const ButtonStateManager = {
 // 初始化按钮事件监听器
 function initializeButtonListeners() {
   // 获取按钮元素，并添加安全检查
-  const extractQuestionsButton = document.getElementById('get-questions');
+  const extractQuestionsButton = document.getElementById('extract-questions');
   const getAIAnswersButton = document.getElementById('get-ai-answers');
   const autoSelectAnswersButton = document.getElementById('auto-select-answers');
   const viewHistoryButton = document.getElementById('view-history');
 
   // 安全检查：确保所有按钮都存在
   const buttonsToCheck = [
-    { id: 'get-questions', name: '提取问题' },
+    { id: 'extract-questions', name: '提取问题' },
     { id: 'get-ai-answers', name: '获取AI答案' },
     { id: 'auto-select-answers', name: '自动选择答案' },
     { id: 'view-history', name: '查看历史' }
@@ -325,74 +325,109 @@ function initializeButtonListeners() {
   extractQuestionsButton.addEventListener('click', async () => {
     try {
       // 更新按钮状态为处理中
-      ButtonStateManager.updateButtonState('get-questions', 'processing');
-      ButtonStateManager.setButtonText('get-questions', '正在提取问题...');
+      ButtonStateManager.updateButtonState('extract-questions', 'processing');
+      ButtonStateManager.setButtonText('extract-questions', '正在提取问题...');
 
-      // 检查当前是否在支持的网页上
-      const activeTab = await new Promise((resolve, reject) => {
+      // 获取当前活动标签页
+      const tabs = await new Promise((resolve, reject) => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (chrome.runtime.lastError) {
             reject(new Error('无法获取当前活动标签页'));
           } else {
-            resolve(tabs[0]);
+            resolve(tabs);
           }
         });
       });
 
-      // 检查网页协议
+      const activeTab = tabs[0];
+
+      // 检查页面协议
       if (!activeTab.url.startsWith('http://') && !activeTab.url.startsWith('https://')) {
-        throw new Error('当前页面不是有效的网页');
+        throw new Error('Current page is not a valid web page');
       }
 
-      currentQuestions = await extractQuestionsFromPage();
-      
-      // 检查提取的问题数量
-      if (currentQuestions.length === 0) {
-        throw new Error('未检测到任何问题');
-      }
+      // 发送消息到内容脚本并处理响应
+      return new Promise((resolve, reject) => {
+        // 设置超时处理
+        const messageTimeout = setTimeout(() => {
+          reject(new Error('Message sending timeout. Content script may not be responding.'));
+        }, 5000);  // 5秒超时
 
-      renderQuestions(currentQuestions);
+        // 使用 runtime.sendMessage 代替 tabs.sendMessage
+        chrome.runtime.sendMessage(
+          { action: 'extractQuestions' }, 
+          (response) => {
+            // 清除超时
+            clearTimeout(messageTimeout);
 
-      // 更新按钮状态为成功
-      ButtonStateManager.updateButtonState('get-questions', 'success');
-      ButtonStateManager.setButtonText('get-questions', `提取问题 ✓ (${currentQuestions.length}个)`);
+            // 检查是否有运行时错误
+            if (chrome.runtime.lastError) {
+              console.error('Message sending error:', chrome.runtime.lastError);
+              reject(new Error(`Communication error: ${chrome.runtime.lastError.message}`));
+              return;
+            }
 
-      // 启用 AI 解答按钮
-      getAIAnswersButton.disabled = false;
-      ButtonStateManager.updateButtonState('get-ai-answers', 'reset');
+            // 验证响应
+            if (!response || !response.success) {
+              console.warn('Invalid or unsuccessful response:', response);
+              reject(new Error(response?.error || 'Unknown error during question extraction'));
+              return;
+            }
 
-      // 显示详细信息
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = `成功提取 ${currentQuestions.length} 个问题`;
-      statusDiv.style.color = 'green';
+            // 处理成功的响应
+            const questions = response.questions || [];
+            
+            if (questions.length === 0) {
+              throw new Error('No questions detected on the page');
+            }
+
+            currentQuestions = questions;
+            renderQuestions(currentQuestions);
+
+            // 更新按钮状态
+            ButtonStateManager.updateButtonState('extract-questions', 'success');
+            ButtonStateManager.setButtonText('extract-questions', `提取问题 ✓ (${questions.length})`);
+
+            // 启用 AI 解答按钮
+            getAIAnswersButton.disabled = false;
+
+            // 显示状态
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = `Successfully extracted ${questions.length} questions`;
+            statusDiv.style.color = 'green';
+
+            resolve(questions);
+          }
+        );
+      });
+
     } catch (error) {
-      console.error('提取问题时发生错误:', error);
+      console.error('Error extracting questions:', error);
       
       // 更新按钮状态为错误
-      ButtonStateManager.updateButtonState('get-questions', 'error');
-      ButtonStateManager.setButtonText('get-questions', '提取问题 ✘');
+      ButtonStateManager.updateButtonState('extract-questions', 'error');
+      ButtonStateManager.setButtonText('extract-questions', '提取问题 ✘');
 
       // 显示详细错误信息
       const statusDiv = document.getElementById('status');
-      statusDiv.textContent = `错误: ${error.message}`;
+      statusDiv.textContent = `Error: ${error.message}`;
       statusDiv.style.color = 'red';
 
-      // 可能的错误原因分析
+      // 详细错误分析
       let detailedErrorMessage = '';
-      if (error.message.includes('无法获取当前活动标签页')) {
-        detailedErrorMessage = '无法获取当前标签页，请确保插件有权限访问当前页面';
-      } else if (error.message.includes('当前页面不是有效的网页')) {
-        detailedErrorMessage = '仅支持 HTTP/HTTPS 协议的网页';
-      } else if (error.message.includes('未检测到任何问题')) {
-        detailedErrorMessage = '页面中未找到符合要求的问题，请检查页面内容';
-      } else if (error.message.includes('发送消息失败')) {
-        detailedErrorMessage = '与内容脚本通信失败，请检查插件权限';
+      if (error.message.includes('Unable to query active tabs')) {
+        detailedErrorMessage = 'Cannot access current tab. Check extension permissions.';
+      } else if (error.message.includes('Communication error')) {
+        detailedErrorMessage = 'Failed to communicate with content script. Ensure the script is properly injected.';
+      } else if (error.message.includes('Message sending timeout')) {
+        detailedErrorMessage = 'Content script is not responding. Page may not be fully loaded.';
+      } else if (error.message.includes('No questions detected')) {
+        detailedErrorMessage = 'No questions found on the page. Verify page content.';
       } else {
-        detailedErrorMessage = '未知错误，请检查网页和插件设置';
+        detailedErrorMessage = 'Unknown error. Check browser console for details.';
       }
 
-      // 在控制台和状态区域显示详细错误信息
-      console.error('详细错误信息:', detailedErrorMessage);
+      console.error('Detailed error:', detailedErrorMessage);
       statusDiv.textContent += `\n${detailedErrorMessage}`;
     }
   });
@@ -484,22 +519,41 @@ function initializeButtonListeners() {
       chrome.tabs.sendMessage(activeTab.id, {
         action: 'autoSelectAnswers',
         questions: lastAIAnswers
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('发送消息失败:', chrome.runtime.lastError);
+          ButtonStateManager.updateButtonState('auto-select-answers', 'error');
+          ButtonStateManager.setButtonText('auto-select-answers', '选择答案 ✘');
+          
+          const statusDiv = document.getElementById('status');
+          statusDiv.textContent = `错误: 与内容脚本通信失败 - ${chrome.runtime.lastError.message}`;
+          statusDiv.style.color = 'red';
+          return;
+        }
+
+        if (response && response.success) {
+          ButtonStateManager.updateButtonState('auto-select-answers', 'success');
+          ButtonStateManager.setButtonText('auto-select-answers', '选择答案 ✓');
+          
+          const statusDiv = document.getElementById('status');
+          statusDiv.textContent = '成功自动选择答案';
+          statusDiv.style.color = 'green';
+        } else {
+          console.error('自动选择答案失败:', response);
+          ButtonStateManager.updateButtonState('auto-select-answers', 'error');
+          ButtonStateManager.setButtonText('auto-select-answers', '选择答案 ✘');
+          
+          const statusDiv = document.getElementById('status');
+          statusDiv.textContent = `错误: ${response ? response.error : '未知错误'}`;
+          statusDiv.style.color = 'red';
+        }
       });
-
-      // 更新按钮状态为成功
-      ButtonStateManager.updateButtonState('auto-select-answers', 'success');
-      ButtonStateManager.setButtonText('auto-select-answers', '自动选择答案 ✓');
-
-      // 更新状态信息
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = `成功为 ${lastAIAnswers.length} 个问题选择答案`;
-      statusDiv.style.color = 'green';
     } catch (error) {
       console.error('自动选择答案时发生错误:', error);
       
       // 更新按钮状态为错误
       ButtonStateManager.updateButtonState('auto-select-answers', 'error');
-      ButtonStateManager.setButtonText('auto-select-answers', '自动选择答案 ✘');
+      ButtonStateManager.setButtonText('auto-select-answers', '选择答案 ✘');
 
       // 显示错误信息
       const statusDiv = document.getElementById('status');
@@ -592,7 +646,7 @@ function extractAnswersFromParentheses(aiAnswer) {
   }
   
   // 如果没有找到括号，尝试其他匹配方式
-  const otherMatch = aiAnswer.match(/答案[是：:]([A-Z]+)/);
+  const otherMatch = aiAnswer.match(/答案是\s*([A-Z]+)/);
   if (otherMatch) {
     return otherMatch[1].split('').map(letter => letter.trim());
   }
@@ -639,39 +693,51 @@ async function extractQuestionsFromPage() {
 
     // 发送消息提取问题
     return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(activeTab.id, { action: 'extractQuestions' }, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error('发送消息失败'));
-          return;
+      // 设置超时处理
+      const messageTimeout = setTimeout(() => {
+        reject(new Error('Message sending timeout. Content script may not be responding.'));
+      }, 5000);  // 5秒超时
+
+      // 使用 runtime.sendMessage 代替 tabs.sendMessage
+      chrome.runtime.sendMessage(
+        { action: 'extractQuestions' }, 
+        (response) => {
+          // 清除超时
+          clearTimeout(messageTimeout);
+
+          if (chrome.runtime.lastError) {
+            reject(new Error('发送消息失败'));
+            return;
+          }
+
+          if (!response) {
+            reject(new Error('未收到内容脚本的响应'));
+            return;
+          }
+
+          if (!response.questions || response.questions.length === 0) {
+            reject(new Error('未检测到任何问题'));
+            return;
+          }
+
+          // 使用 Set 去重
+          const uniqueQuestions = Array.from(
+            new Set(response.questions.map(q => JSON.stringify({
+              text: q.text,
+              choices: q.choices.map(c => c.text)
+            })))
+          ).map(q => JSON.parse(q));
+
+          const processedQuestions = uniqueQuestions.map(uq => 
+            response.questions.find(q => 
+              q.text === uq.text && 
+              q.choices.some(c => uq.choices.includes(c.text))
+            )
+          );
+
+          resolve(processedQuestions);
         }
-
-        if (!response) {
-          reject(new Error('未收到内容脚本的响应'));
-          return;
-        }
-
-        if (!response.questions || response.questions.length === 0) {
-          reject(new Error('未检测到任何问题'));
-          return;
-        }
-
-        // 使用 Set 去重
-        const uniqueQuestions = Array.from(
-          new Set(response.questions.map(q => JSON.stringify({
-            text: q.text,
-            choices: q.choices.map(c => c.text)
-          })))
-        ).map(q => JSON.parse(q));
-
-        const processedQuestions = uniqueQuestions.map(uq => 
-          response.questions.find(q => 
-            q.text === uq.text && 
-            q.choices.some(c => uq.choices.includes(c.text))
-          )
-        );
-
-        resolve(processedQuestions);
-      });
+      );
     });
   } catch (error) {
     console.error('提取问题时发生错误:', error);

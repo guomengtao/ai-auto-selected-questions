@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI问题解答助手",
+  "name": "AI Question Assistant",
   "version": "2.0.0",
-  "description": "自动提取并解答网页中的多选题",
+  "description": "Automatically extract and solve multiple-choice questions on web pages",
   "permissions": [
     "activeTab",
     "storage",
@@ -24,9 +24,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "js": ["content.js"],
-      "run_at": "document_idle",
+      "run_at": "document_start",
       "all_frames": false,
       "world": "MAIN"
     }
